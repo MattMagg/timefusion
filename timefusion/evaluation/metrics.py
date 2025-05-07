@@ -8,6 +8,9 @@ including common error metrics and accuracy measures.
 import numpy as np
 import pandas as pd
 from typing import Dict, Any, Optional, Union, List, Tuple
+import warnings
+
+from ..utils.metrics_utils import preprocess_inputs, safe_divide, safe_metric
 
 
 class Metrics:
@@ -30,7 +33,7 @@ class Metrics:
         Returns:
             float: Mean Squared Error
         """
-        y_true, y_pred = np.array(y_true), np.array(y_pred)
+        y_true, y_pred = preprocess_inputs(y_true, y_pred)
         return np.mean((y_true - y_pred) ** 2)
 
     @staticmethod
@@ -59,7 +62,7 @@ class Metrics:
         Returns:
             float: Mean Absolute Error
         """
-        y_true, y_pred = np.array(y_true), np.array(y_pred)
+        y_true, y_pred = preprocess_inputs(y_true, y_pred)
         return np.mean(np.abs(y_true - y_pred))
 
     @staticmethod
@@ -74,9 +77,14 @@ class Metrics:
         Returns:
             float: Mean Absolute Percentage Error
         """
-        y_true, y_pred = np.array(y_true), np.array(y_pred)
+        y_true, y_pred = preprocess_inputs(y_true, y_pred)
+        
         # Avoid division by zero
         mask = y_true != 0
+        if not np.any(mask):
+            warnings.warn("All true values are zero, cannot calculate MAPE")
+            return np.nan
+            
         return np.mean(np.abs((y_true[mask] - y_pred[mask]) / y_true[mask])) * 100
 
     @staticmethod
@@ -91,15 +99,25 @@ class Metrics:
         Returns:
             float: Symmetric Mean Absolute Percentage Error
         """
-        y_true, y_pred = np.array(y_true), np.array(y_pred)
-        # Avoid division by zero
+        y_true, y_pred = preprocess_inputs(y_true, y_pred)
+        
+        # Calculate denominator
         denominator = np.abs(y_true) + np.abs(y_pred)
         mask = denominator != 0
+        
+        if not np.any(mask):
+            warnings.warn("All denominators are zero, cannot calculate SMAPE")
+            return np.nan
+            
         return np.mean(2.0 * np.abs(y_pred[mask] - y_true[mask]) / denominator[mask]) * 100
 
     @staticmethod
-    def mase(y_true: Union[np.ndarray, pd.Series], y_pred: Union[np.ndarray, pd.Series],
-             y_train: Optional[Union[np.ndarray, pd.Series]] = None, seasonality: int = 1) -> float:
+    def mase(
+        y_true: Union[np.ndarray, pd.Series], 
+        y_pred: Union[np.ndarray, pd.Series],
+        y_train: Optional[Union[np.ndarray, pd.Series]] = None, 
+        seasonality: int = 1
+    ) -> float:
         """
         Calculate Mean Absolute Scaled Error.
 
@@ -112,20 +130,21 @@ class Metrics:
         Returns:
             float: Mean Absolute Scaled Error
         """
-        y_true, y_pred = np.array(y_true), np.array(y_pred)
+        y_true, y_pred = preprocess_inputs(y_true, y_pred)
 
         # If y_train is not provided, use y_true
         if y_train is None:
             y_train = y_true
         else:
-            y_train = np.array(y_train)
+            y_train = np.asarray(y_train).astype(float)
 
         # Calculate MAE
         mae = np.mean(np.abs(y_true - y_pred))
 
-        # Calculate MAE of naive forecast
+        # Check if training data is sufficient
         if len(y_train) <= seasonality:
-            raise ValueError(f"Training data length ({len(y_train)}) must be greater than seasonality ({seasonality})")
+            warnings.warn(f"Training data length ({len(y_train)}) must be greater than seasonality ({seasonality})")
+            return np.nan
 
         # Calculate naive forecast errors
         naive_errors = np.abs(y_train[seasonality:] - y_train[:-seasonality])
@@ -135,7 +154,8 @@ class Metrics:
 
         # Avoid division by zero
         if mae_naive == 0:
-            return np.inf
+            warnings.warn("Naive forecast error is zero, cannot calculate MASE")
+            return np.nan
 
         return mae / mae_naive
 
@@ -151,7 +171,7 @@ class Metrics:
         Returns:
             float: R-squared value
         """
-        y_true, y_pred = np.array(y_true), np.array(y_pred)
+        y_true, y_pred = preprocess_inputs(y_true, y_pred)
 
         # Calculate total sum of squares
         ss_tot = np.sum((y_true - np.mean(y_true)) ** 2)
@@ -159,9 +179,10 @@ class Metrics:
         # Calculate residual sum of squares
         ss_res = np.sum((y_true - y_pred) ** 2)
 
-        # Calculate R-squared
+        # Check for division by zero
         if ss_tot == 0:
-            return 0  # Avoid division by zero
+            warnings.warn("Total sum of squares is zero, R² is undefined")
+            return 0  
 
         return 1 - (ss_res / ss_tot)
 
@@ -177,13 +198,15 @@ class Metrics:
         Returns:
             float: Weighted Absolute Percentage Error
         """
-        y_true, y_pred = np.array(y_true), np.array(y_pred)
+        y_true, y_pred = preprocess_inputs(y_true, y_pred)
 
-        # Avoid division by zero
-        if np.sum(np.abs(y_true)) == 0:
-            return np.inf
+        # Check for division by zero
+        sum_abs_true = np.sum(np.abs(y_true))
+        if sum_abs_true == 0:
+            warnings.warn("Sum of absolute true values is zero, cannot calculate WAPE")
+            return np.nan
 
-        return np.sum(np.abs(y_true - y_pred)) / np.sum(np.abs(y_true)) * 100
+        return np.sum(np.abs(y_true - y_pred)) / sum_abs_true * 100
 
     @staticmethod
     def calculate_metrics(
@@ -209,25 +232,25 @@ class Metrics:
         if metrics is None:
             metrics = ['mse', 'rmse', 'mae', 'mape', 'smape', 'mase', 'r2', 'wape']
 
+        # Define metric function mapping
+        metric_funcs = {
+            'mse': lambda y_t, y_p: Metrics.mse(y_t, y_p),
+            'rmse': lambda y_t, y_p: Metrics.rmse(y_t, y_p),
+            'mae': lambda y_t, y_p: Metrics.mae(y_t, y_p),
+            'mape': lambda y_t, y_p: Metrics.mape(y_t, y_p),
+            'smape': lambda y_t, y_p: Metrics.smape(y_t, y_p),
+            'mase': lambda y_t, y_p: Metrics.mase(y_t, y_p, y_train, seasonality),
+            'r2': lambda y_t, y_p: Metrics.r2(y_t, y_p),
+            'wape': lambda y_t, y_p: Metrics.wape(y_t, y_p)
+        }
+
+        # Calculate requested metrics
         result = {}
         for metric in metrics:
-            if metric.lower() == 'mse':
-                result['mse'] = Metrics.mse(y_true, y_pred)
-            elif metric.lower() == 'rmse':
-                result['rmse'] = Metrics.rmse(y_true, y_pred)
-            elif metric.lower() == 'mae':
-                result['mae'] = Metrics.mae(y_true, y_pred)
-            elif metric.lower() == 'mape':
-                result['mape'] = Metrics.mape(y_true, y_pred)
-            elif metric.lower() == 'smape':
-                result['smape'] = Metrics.smape(y_true, y_pred)
-            elif metric.lower() == 'mase':
-                result['mase'] = Metrics.mase(y_true, y_pred, y_train, seasonality)
-            elif metric.lower() == 'r2':
-                result['r2'] = Metrics.r2(y_true, y_pred)
-            elif metric.lower() == 'wape':
-                result['wape'] = Metrics.wape(y_true, y_pred)
+            metric = metric.lower()
+            if metric in metric_funcs:
+                result[metric] = safe_metric(metric_funcs[metric], y_true, y_pred)
             else:
-                raise ValueError(f"Unknown metric: {metric}")
-
+                warnings.warn(f"Unknown metric: {metric}")
+                
         return result

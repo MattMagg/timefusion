@@ -11,6 +11,7 @@ from typing import Dict, Any, Optional, Union, List, Tuple, Type
 from abc import abstractmethod
 
 from ...models.base import BaseModel
+from ...utils.time_series import create_forecast_index, validate_fitted
 
 
 class StatisticalModel(BaseModel):
@@ -92,8 +93,7 @@ class StatisticalModel(BaseModel):
         Returns:
             pd.DataFrame: Forecasts with confidence intervals
         """
-        if not self.is_fitted:
-            raise ValueError("Model is not fitted. Call fit() first.")
+        validate_fitted(self.is_fitted, "predict_with_confidence")
         
         # This is a default implementation that should be overridden by subclasses
         # that have native support for confidence intervals
@@ -114,34 +114,7 @@ class StatisticalModel(BaseModel):
         Returns:
             Dict[str, Any]: Model parameters
         """
-        if not self.is_fitted:
-            raise ValueError("Model is not fitted. Call fit() first.")
+        validate_fitted(self.is_fitted, "get_params")
         
         # This is a default implementation that should be overridden by subclasses
         return self.params
-    
-    def _create_forecast_index(self, data: pd.DataFrame, horizon: int) -> pd.Index:
-        """
-        Create an index for the forecast DataFrame.
-        
-        Args:
-            data: Input data
-            horizon: Forecast horizon
-            
-        Returns:
-            pd.Index: Index for the forecast DataFrame
-        """
-        if isinstance(data.index, pd.DatetimeIndex):
-            # For time series data with DatetimeIndex
-            last_date = data.index[-1]
-            freq = pd.infer_freq(data.index)
-            if freq is None:
-                # If frequency cannot be inferred, assume daily
-                freq = 'D'
-            forecast_index = pd.date_range(start=last_date + pd.Timedelta(1, unit=freq), periods=horizon, freq=freq)
-        else:
-            # For data without DatetimeIndex
-            last_idx = data.index[-1]
-            forecast_index = range(last_idx + 1, last_idx + horizon + 1)
-        
-        return forecast_index

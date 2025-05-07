@@ -13,6 +13,7 @@ from typing import Dict, Any, Optional, Union, List, Tuple
 from abc import abstractmethod
 
 from ...models.base import BaseModel
+from ...utils.time_series import create_forecast_index, validate_fitted, prepare_target_and_features
 
 
 class DeepLearningModel(BaseModel):
@@ -105,11 +106,10 @@ class DeepLearningModel(BaseModel):
         """
         self.target_column = target_column
         
-        # Determine feature columns
-        if feature_columns is None:
-            self.feature_columns = [col for col in data.columns if col != target_column]
-        else:
-            self.feature_columns = feature_columns
+        # Determine feature columns and extract data
+        self.feature_columns, X_data, y_data = prepare_target_and_features(
+            data, target_column, feature_columns
+        )
         
         # Prepare data
         X, y = self._prepare_data(data)
@@ -163,8 +163,7 @@ class DeepLearningModel(BaseModel):
         Returns:
             pd.DataFrame: Forecasts
         """
-        if not self.is_fitted:
-            raise ValueError("Model is not fitted. Call fit() first.")
+        validate_fitted(self.is_fitted, "predict")
         
         # Prepare input data
         X = self._prepare_prediction_data(data)
@@ -190,7 +189,7 @@ class DeepLearningModel(BaseModel):
                 current_X = new_X
         
         # Create forecast DataFrame
-        forecast_index = self._create_forecast_index(data, horizon)
+        forecast_index = create_forecast_index(data, horizon)
         forecast_df = pd.DataFrame({self.target_column: forecasts}, index=forecast_index)
         
         return forecast_df
@@ -244,32 +243,6 @@ class DeepLearningModel(BaseModel):
         
         return X
     
-    def _create_forecast_index(self, data: pd.DataFrame, horizon: int) -> pd.Index:
-        """
-        Create an index for the forecast DataFrame.
-        
-        Args:
-            data: Input data
-            horizon: Forecast horizon
-            
-        Returns:
-            pd.Index: Index for the forecast DataFrame
-        """
-        if isinstance(data.index, pd.DatetimeIndex):
-            # For time series data with DatetimeIndex
-            last_date = data.index[-1]
-            freq = pd.infer_freq(data.index)
-            if freq is None:
-                # If frequency cannot be inferred, assume daily
-                freq = 'D'
-            forecast_index = pd.date_range(start=last_date + pd.Timedelta(1, unit=freq), periods=horizon, freq=freq)
-        else:
-            # For data without DatetimeIndex
-            last_idx = data.index[-1]
-            forecast_index = range(last_idx + 1, last_idx + horizon + 1)
-        
-        return forecast_index
-    
     def get_params(self) -> Dict[str, Any]:
         """
         Get the model parameters.
@@ -277,8 +250,7 @@ class DeepLearningModel(BaseModel):
         Returns:
             Dict[str, Any]: Model parameters
         """
-        if not self.is_fitted:
-            raise ValueError("Model is not fitted. Call fit() first.")
+        validate_fitted(self.is_fitted, "get_params")
         
         return {
             "sequence_length": self.sequence_length,
