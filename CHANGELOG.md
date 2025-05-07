@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added comprehensive test suite for all components
 - Added Testing section to README.md
 - Added CHANGELOG.md file
+- Added cryptocurrency forecasting example using Nixtla's statsforecast library
+- Added integration with Nixtla libraries for enhanced forecasting capabilities
+- Added examples section to README.md
 
 ### Fixed
 - Fixed Imputer component to correctly handle window_size parameter
@@ -21,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Updated pyproject.toml to include seaborn as a dependency
+- Refactored examples directory structure for better organization
 
 ## [0.1.0] - 2023-01-01
 

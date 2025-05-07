@@ -17,10 +17,20 @@ A Python library that combines statistical methods with deep learning approaches
 pip install timefusion
 ```
 
-For optional deep learning components:
+For optional components:
 
 ```bash
+# Deep learning components
 pip install timefusion[deep]
+
+# Forecasting components (statsforecast, neuralforecast, mlforecast)
+pip install timefusion[forecast]
+
+# Visualization components
+pip install timefusion[viz]
+
+# All optional components
+pip install timefusion[all]
 ```
 
 ## Quick Start
@@ -80,6 +90,7 @@ For full documentation, visit [timefusion.readthedocs.io](https://timefusion.rea
 - **Statistical Models**: ARIMA, Exponential Smoothing, Naive methods
 - **Deep Learning Models**: LSTM, SimpleRNN
 - **Hybrid Models**: Ensemble, Residual
+- **Integration**: Compatible with Nixtla's statsforecast, neuralforecast, and mlforecast libraries
 
 ### Evaluation
 
@@ -93,6 +104,14 @@ For full documentation, visit [timefusion.readthedocs.io](https://timefusion.rea
 - **Logging**: Configurable logging levels and formats
 - **Visualization**: Plotting functions for time series data and forecasts
 - **HPO**: Hyperparameter optimization utilities
+
+### Examples
+
+- **Basic Forecasting**: Simple time series forecasting workflow
+- **Statistical Models**: Using ARIMA and Exponential Smoothing
+- **Deep Learning Models**: Using LSTM and SimpleRNN
+- **Hybrid Models**: Using ensemble and residual approaches
+- **Cryptocurrency Forecasting**: Forecasting cryptocurrency prices using Nixtla's statsforecast
 
 ## Testing
 
