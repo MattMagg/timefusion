@@ -64,7 +64,7 @@ metrics = Metrics.calculate(y_test, forecast)
 
 ## Documentation
 
-For full documentation, visit [timefusion.readthedocs.io](https://timefusion.readthedocs.io).
+For full documentation, visit [timefusion.readthedocs.io](https://timefusion.readthedocs.io/en/latest/index.html#).
 
 ## Features
 
